@@ -12,7 +12,6 @@
 
 package org.freedesktop.dbus.messages;
 
-import java.io.FileDescriptor;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -30,6 +29,7 @@ import org.freedesktop.Hexdump;
 import org.freedesktop.dbus.ArrayFrob;
 import org.freedesktop.dbus.Container;
 import org.freedesktop.dbus.DBusMap;
+import org.freedesktop.dbus.FileDescriptor;
 import org.freedesktop.dbus.Marshalling;
 import org.freedesktop.dbus.ObjectPath;
 import org.freedesktop.dbus.connections.AbstractConnection;
@@ -73,6 +73,7 @@ public class Message {
     private byte[][]          wiredata;
     private long              bytecounter;
     private Map<Byte, Object> headers;
+    private List<FileDescriptor> filedescriptors;
 
     private long              serial;
     private byte              type;
@@ -112,6 +113,8 @@ public class Message {
             return "Sender";
         case HeaderField.SIGNATURE:
             return "Signature";
+        case HeaderField.UNIX_FDS:
+            return "Unix FD";
         default:
             return "Invalid";
         }
@@ -128,6 +131,7 @@ public class Message {
     protected Message(byte endian, byte _type, byte _flags) throws DBusException {
         wiredata = new byte[BUFFERINCREMENT][];
         headers = new HashMap<>();
+        filedescriptors = new ArrayList<>();
         big = (Endian.BIG == endian);
         bytecounter = 0;
         synchronized (Message.class) {
@@ -148,6 +152,7 @@ public class Message {
     protected Message() {
         wiredata = new byte[BUFFERINCREMENT][];
         headers = new HashMap<>();
+        filedescriptors = new ArrayList<>();
         bytecounter = 0;
     }
 
@@ -417,6 +422,10 @@ public class Message {
     public byte[][] getWireData() {
         return wiredata;
     }
+    
+    public List<FileDescriptor> getFiledescriptors(){
+        return filedescriptors;
+    }
 
     /**
      * Formats the message in a human-readable format.
@@ -558,8 +567,8 @@ public class Message {
                 appendint(((Number) data).shortValue(), 2);
                 break;
             case ArgumentType.FILEDESCRIPTOR:
-                int x = getFileDescriptor((FileDescriptor) data);
-                appendint(((Number) x).longValue(), 4);
+                filedescriptors.add((FileDescriptor)data);
+                appendint(filedescriptors.size() - 1, 4);
                 break;
             case ArgumentType.STRING:
             case ArgumentType.OBJECT_PATH:
@@ -978,7 +987,8 @@ public class Message {
             _offsets[OFFSET_DATA] = newofs[OFFSET_DATA];
             break;
         case ArgumentType.FILEDESCRIPTOR:
-            rv = createFileDescriptorByReflection(demarshallint(_dataBuf, _offsets[OFFSET_DATA], 4));
+            //TODO extract the FD
+            //rv = createFileDescriptorByReflection(demarshallint(_dataBuf, _offsets[OFFSET_DATA], 4));
             _offsets[OFFSET_DATA] += 4;
             break;
         case ArgumentType.STRING:
@@ -1014,30 +1024,6 @@ public class Message {
             }
         }
         return rv;
-    }
-
-    private int getFileDescriptor(FileDescriptor _data) throws MarshallingException {
-        Field declaredField;
-        try {
-            declaredField = _data.getClass().getDeclaredField("fd");
-            declaredField.setAccessible(true);
-            return declaredField.getInt(_data);
-        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException _ex) {
-            logger.error("Could not get filedescriptor by reflection.", _ex);
-            throw new MarshallingException("Could not get member 'fd' of FileDescriptor by reflection!", _ex);
-        }
-    }
-
-    private FileDescriptor createFileDescriptorByReflection(long _demarshallint) throws MarshallingException {
-        try {
-            Constructor<FileDescriptor> constructor = FileDescriptor.class.getDeclaredConstructor(int.class);
-            constructor.setAccessible(true);
-            return constructor.newInstance((int) _demarshallint);
-        } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException
-                | IllegalArgumentException | InvocationTargetException _ex) {
-            logger.error("Could not create new FileDescriptor instance by reflection.", _ex);
-            throw new MarshallingException("Could not create new FileDescriptor instance by reflection", _ex);
-        }
     }
 
     private Object optimizePrimitives(byte[] _signatureBuf, byte[] _dataBuf, int[] _offsets, long size, byte algn,
@@ -1346,6 +1332,7 @@ public class Message {
         byte DESTINATION  = 6;
         byte SENDER       = 7;
         byte SIGNATURE    = 8;
+        byte UNIX_FDS     = 9;
     }
 
     /**

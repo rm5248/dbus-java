@@ -8,6 +8,7 @@ import org.freedesktop.dbus.connections.SASL;
 import com.github.hypfvieh.util.SystemUtil;
 
 import jnr.unixsocket.UnixServerSocketChannel;
+import jnr.unixsocket.UnixSocket;
 import jnr.unixsocket.UnixSocketAddress;
 import jnr.unixsocket.UnixSocketChannel;
 import jnr.unixsocket.UnixSocketOptions;
@@ -62,8 +63,14 @@ public class UnixSocketTransport extends AbstractTransport {
         if (!SystemUtil.isMacOs()) {
             us.setOption(UnixSocketOptions.SO_PASSCRED, true);
         }
-
-        setOutputWriter(us.socket().getOutputStream());
+        
+        int fd = ((UnixSocketChannel)us.socket().getChannel()).getFD();
+        if(hasFileDescriptorSupport()){
+            setOutputFD(fd);
+        }else{
+            setOutputWriter(us.socket().getOutputStream());
+        }
+        
         setInputReader(us.socket().getInputStream());
         
         authenticate(us.socket().getOutputStream(), us.socket().getInputStream(), us.socket());

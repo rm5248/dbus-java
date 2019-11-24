@@ -35,7 +35,7 @@ import org.freedesktop.DBus;
 import org.freedesktop.Hexdump;
 import org.freedesktop.dbus.Marshalling;
 import org.freedesktop.dbus.MessageReader;
-import org.freedesktop.dbus.MessageWriter;
+import org.freedesktop.dbus.OutputStreamMessageWriter;
 import org.freedesktop.dbus.connections.BusAddress;
 import org.freedesktop.dbus.connections.impl.DirectConnection;
 import org.freedesktop.dbus.connections.transports.TransportFactory;
@@ -70,20 +70,20 @@ public class DBusDaemon extends Thread implements Closeable {
         public UnixSocket    usock;
         public Socket        tsock;
         public MessageReader min;
-        public MessageWriter mout;
+        public OutputStreamMessageWriter mout;
         public String        unique;
         // CHECKSTYLE:ON
 
         Connstruct(UnixSocket sock) throws IOException {
             this.usock = sock;
             min = new MessageReader(sock.getInputStream());
-            mout = new MessageWriter(sock.getOutputStream());
+            mout = new OutputStreamMessageWriter(sock.getOutputStream());
         }
 
         Connstruct(Socket sock) throws IOException {
             this.tsock = sock;
             min = new MessageReader(sock.getInputStream());
-            mout = new MessageWriter(sock.getOutputStream());
+            mout = new OutputStreamMessageWriter(sock.getOutputStream());
         }
 
         @Override

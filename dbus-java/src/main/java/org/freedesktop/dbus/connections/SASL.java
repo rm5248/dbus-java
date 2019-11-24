@@ -414,9 +414,8 @@ public class SASL {
         int failed = 0;
         int current = 0;
         SaslAuthState state = SaslAuthState.INITIAL_STATE;
-        boolean askForFd = false;
         
-        while (state != SaslAuthState.AUTHENTICATED && state != SaslAuthState.FAILED) {
+        while (state != SaslAuthState.FINISHED && state != SaslAuthState.FAILED) {
 
             logger.trace("AUTH state: {}", state);
 
@@ -466,7 +465,8 @@ public class SASL {
                             break;
                         case ERROR:
                             // when asking for file descriptor support, ERROR means FD support is not supported
-                            if (askForFd) { 
+                            if (state == SaslAuthState.NEGOTIATE_UNIX_FD) { 
+                                state = SaslAuthState.FINISHED;
                                 logger.trace("File descriptors NOT supported by server");
                                 fileDescriptorSupported = false;
                                 send(out, BEGIN);                            
@@ -480,14 +480,17 @@ public class SASL {
                             state = SaslAuthState.AUTHENTICATED;
 
                             if (hasFileDescriptorSupport) {
+                                state = SaslAuthState.WAIT_DATA;
                                 logger.trace("Asking for file descriptor support");
                                 // if authentication was successful, ask remote end for file descriptor support
                                 send(out, SaslCommand.NEGOTIATE_UNIX_FD);
-                                askForFd = true;
+                            }else{
+                                state = SaslAuthState.FINISHED;
                             }
                             break;
                         case AGREE_UNIX_FD:
                             if (hasFileDescriptorSupport) {
+                                state = SaslAuthState.FINISHED;
                                 logger.trace("File descriptors supported by server");
                                 fileDescriptorSupported = true;
                                 send(out, BEGIN);
@@ -683,7 +686,7 @@ public class SASL {
             }
         }
 
-        return state == SaslAuthState.AUTHENTICATED;
+        return state == SaslAuthState.FINISHED;
     }
 
     public static enum SaslMode {
@@ -710,6 +713,8 @@ public class SASL {
         WAIT_AUTH,
         WAIT_BEGIN,
         AUTHENTICATED,
+        NEGOTIATE_UNIX_FD,
+        FINISHED,
         FAILED;
     }
 

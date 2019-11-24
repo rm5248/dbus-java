@@ -5,9 +5,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import org.freedesktop.dbus.FDMessageWriter;
 
 import org.freedesktop.dbus.MessageReader;
 import org.freedesktop.dbus.MessageWriter;
+import org.freedesktop.dbus.OutputStreamMessageWriter;
 import org.freedesktop.dbus.connections.BusAddress;
 import org.freedesktop.dbus.connections.SASL;
 import org.freedesktop.dbus.exceptions.DBusException;
@@ -54,9 +56,9 @@ public abstract class AbstractTransport implements Closeable {
      * @throws IOException on write error or if output was already closed or null
      */
     public void writeMessage(Message _msg) throws IOException {
-        if (!fileDescriptorSupported && Message.ArgumentType.FILEDESCRIPTOR == _msg.getType()) {
-            throw new IllegalArgumentException("File descriptors are not supported by the remote end!");
-        }
+//        if (!fileDescriptorSupported && Message.ArgumentType.FILEDESCRIPTOR == _msg.getType()) {
+//            throw new IllegalArgumentException("File descriptors are not supported by the remote end!");
+//        }
         if (outputWriter != null && !outputWriter.isClosed()) {
             outputWriter.writeMessage(_msg);
         } else {
@@ -111,7 +113,11 @@ public abstract class AbstractTransport implements Closeable {
 
 
     protected void setOutputWriter(OutputStream _outputStream) {
-        outputWriter = new MessageWriter(_outputStream);        
+        outputWriter = new OutputStreamMessageWriter(_outputStream);        
+    }
+    
+    protected void setOutputFD(int _fd){
+        outputWriter = new FDMessageWriter(_fd);
     }
 
     protected void setInputReader(InputStream _inputStream) {
