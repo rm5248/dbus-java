@@ -417,7 +417,7 @@ public class SASL {
         
         while (state != SaslAuthState.FINISHED && state != SaslAuthState.FAILED) {
 
-            logger.trace("AUTH state: {}", state);
+            logger.trace("Mode: {} AUTH state: {}", mode, state);
 
             switch (mode) {
             case CLIENT:
@@ -661,7 +661,7 @@ public class SASL {
                                 state = SaslAuthState.WAIT_AUTH;
                             break;
                             case BEGIN:
-                                    state = SaslAuthState.AUTHENTICATED;
+                                    state = SaslAuthState.FINISHED;
                             break;
                             case NEGOTIATE_UNIX_FD:
                                 logger.debug("File descriptor negotiation requested");

@@ -5,11 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import org.freedesktop.dbus.FileDescriptor;
 
 import org.freedesktop.dbus.annotations.DBusInterfaceName;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
@@ -18,6 +18,7 @@ import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.exceptions.DBusExecutionException;
 import org.freedesktop.dbus.interfaces.DBusInterface;
 import org.junit.jupiter.api.AfterEach;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -41,9 +42,10 @@ public class MarshallingFileDescriptorTest {
 
         sampleFileStream = new FileInputStream(File.createTempFile("dbustest", "testFd"));
         
-        GetFileDescriptor fd = new GetFileDescriptor(sampleFileStream.getFD());
+        FileDescriptor tosend = new FileDescriptor(sampleFileStream.getFD());
+        GetFileDescriptor fd = new GetFileDescriptor(tosend);
          
-        System.out.println("Created file descriptor: " + getFileDescriptorIntId(sampleFileStream.getFD()));
+        System.out.println("Created file descriptor: " + tosend.getIntFileDescriptor());
         
         serverConn.exportObject(TEST_OBJECT_PATH, fd);
     }
@@ -73,20 +75,10 @@ public class MarshallingFileDescriptorTest {
         FileDescriptor fileDescriptor = ((IFileDescriptor) remoteObject).getFileDescriptor();
         assertNotNull(fileDescriptor, "Descriptor should not be null");
         
-        assertTrue(fileDescriptor.valid(), "Descriptor has to be valid");
-        int receivedFdId = getFileDescriptorIntId(fileDescriptor);
+        //assertTrue(fileDescriptor.valid(), "Descriptor has to be valid");
+        int receivedFdId = fileDescriptor.getIntFileDescriptor();
         System.out.println("Received file descriptor with ID: " + receivedFdId);
-        assertEquals(getFileDescriptorIntId(sampleFileStream.getFD()), receivedFdId);
-    }
-    
-    static int getFileDescriptorIntId(FileDescriptor _fd) {
-        try {
-            Field field = _fd.getClass().getDeclaredField("fd");
-            field.setAccessible(true);
-            return field.getInt(_fd);
-        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException _ex) {
-            return -99;
-        }
+        assertNotEquals(new FileDescriptor(sampleFileStream.getFD()).getIntFileDescriptor(), receivedFdId);
     }
     
     // ==================================================================================================

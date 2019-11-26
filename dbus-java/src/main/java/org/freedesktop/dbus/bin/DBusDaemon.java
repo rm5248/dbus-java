@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.freedesktop.DBus;
 import org.freedesktop.Hexdump;
 import org.freedesktop.dbus.Marshalling;
-import org.freedesktop.dbus.MessageReader;
+import org.freedesktop.dbus.InputStreamMessageReader;
 import org.freedesktop.dbus.OutputStreamMessageWriter;
 import org.freedesktop.dbus.connections.BusAddress;
 import org.freedesktop.dbus.connections.impl.DirectConnection;
@@ -69,20 +69,20 @@ public class DBusDaemon extends Thread implements Closeable {
         // CHECKSTYLE:OFF
         public UnixSocket    usock;
         public Socket        tsock;
-        public MessageReader min;
+        public InputStreamMessageReader min;
         public OutputStreamMessageWriter mout;
         public String        unique;
         // CHECKSTYLE:ON
 
         Connstruct(UnixSocket sock) throws IOException {
             this.usock = sock;
-            min = new MessageReader(sock.getInputStream());
+            min = new InputStreamMessageReader(sock.getInputStream());
             mout = new OutputStreamMessageWriter(sock.getOutputStream());
         }
 
         Connstruct(Socket sock) throws IOException {
             this.tsock = sock;
-            min = new MessageReader(sock.getInputStream());
+            min = new InputStreamMessageReader(sock.getInputStream());
             mout = new OutputStreamMessageWriter(sock.getOutputStream());
         }
 

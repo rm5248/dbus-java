@@ -71,7 +71,11 @@ public class UnixSocketTransport extends AbstractTransport {
             setOutputWriter(us.socket().getOutputStream());
         }
         
-        setInputReader(us.socket().getInputStream());
+        if(hasFileDescriptorSupport()){
+            setInputFD(fd);
+        }else{
+            setInputReader(us.socket().getInputStream());
+        }
         
         authenticate(us.socket().getOutputStream(), us.socket().getInputStream(), us.socket());
     }

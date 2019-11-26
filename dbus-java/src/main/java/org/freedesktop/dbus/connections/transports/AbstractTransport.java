@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import org.freedesktop.dbus.FDMessageReader;
 import org.freedesktop.dbus.FDMessageWriter;
 
+import org.freedesktop.dbus.InputStreamMessageReader;
 import org.freedesktop.dbus.MessageReader;
 import org.freedesktop.dbus.MessageWriter;
 import org.freedesktop.dbus.OutputStreamMessageWriter;
@@ -121,7 +123,11 @@ public abstract class AbstractTransport implements Closeable {
     }
 
     protected void setInputReader(InputStream _inputStream) {
-        inputReader = new MessageReader(_inputStream);
+        inputReader = new InputStreamMessageReader(_inputStream);
+    }
+    
+    protected void setInputFD(int _fd){
+        inputReader = new FDMessageReader(_fd);
     }
     
     protected int getSaslAuthMode() {

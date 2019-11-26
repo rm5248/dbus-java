@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.List;
-import jnr.ffi.LibraryLoader;
 import jnr.ffi.Pointer;
 import jnr.posix.CmsgHdr;
 import jnr.posix.MsgHdr;
@@ -24,7 +23,6 @@ public class FDMessageWriter implements MessageWriter {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     
     // Constants that are macros in C - these may change between systems
-    private static final int SOL_SOCKET = 1;
     private static final int SCM_RIGHTS = 1;
     private static final int MSG_NOSIGNAL = 16384;
     
@@ -38,6 +36,7 @@ public class FDMessageWriter implements MessageWriter {
 
     @Override
     public void close() throws IOException {
+        if( m_isClosed ) return;
         m_isClosed = true;
         POSIX.close( m_fd );
     }
@@ -58,8 +57,8 @@ public class FDMessageWriter implements MessageWriter {
         
         // Set the file descriptors that we need to send
         if( fds.size() > 0 ){
-            CmsgHdr cmsghdr = msghdr.allocateControl(fds.size());
-            cmsghdr.setType(SOL_SOCKET);
+            CmsgHdr cmsghdr = msghdr.allocateControl(fds.size() * 4);
+            cmsghdr.setType(jnr.constants.platform.SocketLevel.SOL_SOCKET.intValue());
             cmsghdr.setLevel(SCM_RIGHTS);
             ByteBuffer bb = ByteBuffer.allocate(fds.size() * 4);
             IntBuffer ibuf = bb.asIntBuffer();
@@ -84,7 +83,7 @@ public class FDMessageWriter implements MessageWriter {
         }
         
         // ... now allocate enough data and loop again to set it all.
-        ByteBuffer dataSend = ByteBuffer.allocate(data_len);
+        ByteBuffer dataSend = ByteBuffer.allocateDirect(data_len);
         for (byte[] buf : m.getWireData()) {
             if (null == buf) {
                 break;
@@ -94,8 +93,6 @@ public class FDMessageWriter implements MessageWriter {
         }
         
         dataSend.flip();
-        logger.debug( "pointer is {}", 
-                Pointer.wrap( jnr.ffi.Runtime.getSystemRuntime(), dataSend ) );
         msghdr.setIov(new ByteBuffer[]{dataSend});
         
         logger.trace( "msghdr to send: {}", msghdr );
