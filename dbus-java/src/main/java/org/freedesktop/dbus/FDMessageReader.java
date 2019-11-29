@@ -46,7 +46,12 @@ public class FDMessageReader implements MessageReader {
         int headerArrayLen;
         int messageBodyLen;
         Message m;
-        
+        ByteBuffer finalBuffer;
+
+        if( Thread.currentThread().isInterrupted() ){
+            return null;
+        }
+
         // Note: Since we need to read the entire message at once, peek
         // at the header data to see how much we need.
         // The header contains a fixed value in the first 12 bytes,
@@ -95,31 +100,48 @@ public class FDMessageReader implements MessageReader {
         totalMessageLen = 12 + (4 + headerArrayLen) + messageBodyLen;
         
         inData[0] = ByteBuffer.allocateDirect(totalMessageLen);
+        finalBuffer = ByteBuffer.allocateDirect(totalMessageLen);
         inMessage.setIov(inData);
+        inMessage.allocateControl(20);
         
         bytesRead = 0;
         
+        if( Thread.currentThread().isInterrupted() ){
+            return null;
+        }
+
+        logger.debug( "Going to read a complete message of len {} on TID {} with FD {}",
+                totalMessageLen,
+                Thread.currentThread().getId(),
+                m_fd);
         // Now read the entire message
-        while( bytesRead != totalMessageLen ){
+        while( finalBuffer.position() < totalMessageLen ){
             bytesRead = POSIX.recvmsg(m_fd, inMessage, 0);
             if( bytesRead < 0 ){
                 int errno = POSIX.errno();
+                logger.error( "GOT ERRNO BRO" );
                 throw new IOException( "Unable to receive data: " + POSIX.strerror(errno) );
             }
+            finalBuffer.put(inData[0]);
+            logger.debug( "read {} bytes with flags {} on TID {}",
+                    bytesRead,
+                    inMessage.getFlags(),
+                    Thread.currentThread().getId());
         }
+        finalBuffer.flip();
         
         //logger.debug( "total message len {} headerArrayLen {}", totalMessageLen, headerArrayLen);
         byte[] header1 = new byte[12];
         byte[] arrayHeader = new byte[headerArrayLen + 8];
         byte[] body = new byte[messageBodyLen];
         
-        inData[0].get(header1);
+        finalBuffer.get(header1);
         // Note: Message.java is assuming that the array length has padding
         // (or something like that) for this message type, so we need to first
         // copy the first 4 bytes, and then the remainder after that.
-        inData[0].get(arrayHeader, 0, 4);
-        inData[0].get(arrayHeader, 8, arrayHeader.length - 8);
-        inData[0].get(body);
+        finalBuffer.get(arrayHeader, 0, 4);
+        finalBuffer.get(arrayHeader, 8, arrayHeader.length - 8);
+        finalBuffer.get(body);
         
         try {
             m = MessageFactory.createMessage(type, header1, arrayHeader, body);
