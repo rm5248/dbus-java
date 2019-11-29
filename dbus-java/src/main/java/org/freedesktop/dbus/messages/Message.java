@@ -48,6 +48,10 @@ import org.slf4j.LoggerFactory;
  * format.
  */
 public class Message {
+    public static final int MAXIMUM_ARRAY_LENGTH = 67108864;
+    public static final int MAXIMUM_MESSAGE_LENGTH = MAXIMUM_ARRAY_LENGTH * 2;
+    public static final int MAXIMUM_NUM_UNIX_FDS = MAXIMUM_MESSAGE_LENGTH / 4;
+
     /** The current protocol major version. */
     public static final byte PROTOCOL    = 1;
 
@@ -164,7 +168,7 @@ public class Message {
      * @param _body D-Bus serialized data of the signature defined in headers.
      */
     @SuppressWarnings("unchecked")
-    void populate(byte[] _msg, byte[] _headers, byte[] _body) throws DBusException {
+    void populate(byte[] _msg, byte[] _headers, byte[] _body, List<FileDescriptor> descriptors) throws DBusException {
         big = (_msg[0] == Endian.BIG);
         type = _msg[1];
         flags = _msg[2];
@@ -177,6 +181,7 @@ public class Message {
         bodylen = ((Number) extract(Message.ArgumentType.UINT32_STRING, _msg, 4)[0]).longValue();
         serial = ((Number) extract(Message.ArgumentType.UINT32_STRING, _msg, 8)[0]).longValue();
         bytecounter = _msg.length + _headers.length + _body.length;
+        filedescriptors = descriptors;
 
         logger.trace("Message header: {}", Hexdump.toAscii(_headers));
         Object[] hs = extract("a(yv)", _headers, 0);
@@ -569,6 +574,7 @@ public class Message {
             case ArgumentType.FILEDESCRIPTOR:
                 filedescriptors.add((FileDescriptor)data);
                 appendint(filedescriptors.size() - 1, 4);
+                headers.put(HeaderField.UNIX_FDS, filedescriptors.size() - 1);
                 break;
             case ArgumentType.STRING:
             case ArgumentType.OBJECT_PATH:
@@ -987,8 +993,7 @@ public class Message {
             _offsets[OFFSET_DATA] = newofs[OFFSET_DATA];
             break;
         case ArgumentType.FILEDESCRIPTOR:
-            //TODO extract the FD
-            //rv = createFileDescriptorByReflection(demarshallint(_dataBuf, _offsets[OFFSET_DATA], 4));
+            rv = filedescriptors.get((int)demarshallint(_dataBuf, _offsets[OFFSET_DATA], 4));
             _offsets[OFFSET_DATA] += 4;
             break;
         case ArgumentType.STRING:

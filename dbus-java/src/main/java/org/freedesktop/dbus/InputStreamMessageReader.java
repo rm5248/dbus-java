@@ -161,7 +161,7 @@ public class InputStreamMessageReader implements MessageReader {
 
         Message m;
         try {
-            m = MessageFactory.createMessage(type, buf, header, body);
+            m = MessageFactory.createMessage(type, buf, header, body, null);
         } catch (DBusException dbe) {
             logger.debug("", dbe);
             buf = null;

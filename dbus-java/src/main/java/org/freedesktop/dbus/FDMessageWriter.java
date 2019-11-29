@@ -23,7 +23,7 @@ public class FDMessageWriter implements MessageWriter {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     
     // Constants that are macros in C - these may change between systems
-    private static final int SCM_RIGHTS = 1;
+    public static final int SCM_RIGHTS = 1;
     private static final int MSG_NOSIGNAL = 16384;
     
     private int m_fd;
@@ -54,16 +54,17 @@ public class FDMessageWriter implements MessageWriter {
         
         MsgHdr msghdr = POSIX.allocateMsgHdr();
         List<FileDescriptor> fds = m.getFiledescriptors();
+
+        logger.debug( "Going to apend {} filedescriptors", fds.size() );
         
         // Set the file descriptors that we need to send
         if( fds.size() > 0 ){
             CmsgHdr cmsghdr = msghdr.allocateControl(fds.size() * 4);
             cmsghdr.setType(jnr.constants.platform.SocketLevel.SOL_SOCKET.intValue());
             cmsghdr.setLevel(SCM_RIGHTS);
-            ByteBuffer bb = ByteBuffer.allocate(fds.size() * 4);
-            IntBuffer ibuf = bb.asIntBuffer();
+            ByteBuffer bb = ByteBuffer.allocateDirect(fds.size() * 4);
             for( FileDescriptor fd : fds ){
-                ibuf.put( fd.getIntFileDescriptor() );
+                bb.putInt( fd.getIntFileDescriptor() );
             }
             cmsghdr.setData(bb);
         }
@@ -95,7 +96,7 @@ public class FDMessageWriter implements MessageWriter {
         dataSend.flip();
         msghdr.setIov(new ByteBuffer[]{dataSend});
         
-        logger.trace( "msghdr to send: {}", msghdr );
+        logger.trace( "writing on fd {} msghdr to send: {}", m_fd, msghdr );
         
         int bytesWrote = POSIX.sendmsg(m_fd, msghdr, MSG_NOSIGNAL);
         if( bytesWrote < 0 ){

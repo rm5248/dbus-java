@@ -4,8 +4,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import jnr.posix.CmsgHdr;
 import jnr.posix.MsgHdr;
 import jnr.posix.POSIXFactory;
+import static org.freedesktop.dbus.FDMessageWriter.SCM_RIGHTS;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.exceptions.MessageProtocolVersionException;
 import org.freedesktop.dbus.messages.Message;
@@ -47,6 +51,8 @@ public class FDMessageReader implements MessageReader {
         int messageBodyLen;
         Message m;
         ByteBuffer finalBuffer;
+        List<FileDescriptor> filedescriptors = new ArrayList<>();
+        CmsgHdr[] controls;
 
         if( Thread.currentThread().isInterrupted() ){
             return null;
@@ -102,7 +108,7 @@ public class FDMessageReader implements MessageReader {
         inData[0] = ByteBuffer.allocateDirect(totalMessageLen);
         finalBuffer = ByteBuffer.allocateDirect(totalMessageLen);
         inMessage.setIov(inData);
-        inMessage.allocateControl(20);
+        controls = inMessage.allocateControls(new int[]{200});
         
         bytesRead = 0;
         
@@ -119,7 +125,6 @@ public class FDMessageReader implements MessageReader {
             bytesRead = POSIX.recvmsg(m_fd, inMessage, 0);
             if( bytesRead < 0 ){
                 int errno = POSIX.errno();
-                logger.error( "GOT ERRNO BRO" );
                 throw new IOException( "Unable to receive data: " + POSIX.strerror(errno) );
             }
             finalBuffer.put(inData[0]);
@@ -130,7 +135,6 @@ public class FDMessageReader implements MessageReader {
         }
         finalBuffer.flip();
         
-        //logger.debug( "total message len {} headerArrayLen {}", totalMessageLen, headerArrayLen);
         byte[] header1 = new byte[12];
         byte[] arrayHeader = new byte[headerArrayLen + 8];
         byte[] body = new byte[messageBodyLen];
@@ -142,9 +146,25 @@ public class FDMessageReader implements MessageReader {
         finalBuffer.get(arrayHeader, 0, 4);
         finalBuffer.get(arrayHeader, 8, arrayHeader.length - 8);
         finalBuffer.get(body);
+
+        for( CmsgHdr cmsghdr : controls ){
+            if( cmsghdr.getType() == jnr.constants.platform.SocketLevel.SOL_SOCKET.intValue() &&
+                    cmsghdr.getLevel() == SCM_RIGHTS ){
+                ByteBuffer bb = cmsghdr.getData();
+                if( endian == 0x42 /* ASCII 'B' */ ){
+                    bb.order(ByteOrder.BIG_ENDIAN);
+                }else if( endian == 0x6C /* ASCII 'l' */ ){
+                    bb.order(ByteOrder.LITTLE_ENDIAN);
+                }else{
+                    logger.error( "Incorrect endian {}", endian );
+                    throw new IOException( "incorrect endianess" );
+                }
+                filedescriptors.add( new FileDescriptor( bb.getInt() ) );
+            }
+        }
         
         try {
-            m = MessageFactory.createMessage(type, header1, arrayHeader, body);
+            m = MessageFactory.createMessage(type, header1, arrayHeader, body, filedescriptors);
         } catch (DBusException dbe) {
             logger.debug("", dbe);
             throw dbe;
