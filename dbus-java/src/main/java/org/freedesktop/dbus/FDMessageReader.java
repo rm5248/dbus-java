@@ -13,6 +13,7 @@ import static org.freedesktop.dbus.FDMessageWriter.SCM_RIGHTS;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.exceptions.MessageProtocolVersionException;
 import org.freedesktop.dbus.messages.Message;
+import org.freedesktop.dbus.messages.Message.Endian;
 import org.freedesktop.dbus.messages.MessageFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,9 +84,9 @@ public class FDMessageReader implements MessageReader {
             throw new MessageProtocolVersionException(String.format("Protocol version %s is unsupported", protover));
         }
         
-        if( endian == 0x42 /* ASCII 'B' */ ){
+        if( endian == Endian.BIG ){
             inData[0].order(ByteOrder.BIG_ENDIAN);
-        }else if( endian == 0x6C /* ASCII 'l' */ ){
+        }else if( endian == Endian.LITTLE ){
             inData[0].order(ByteOrder.LITTLE_ENDIAN);
         }else{
             logger.error( "Incorrect endian {}", endian );
@@ -108,7 +109,7 @@ public class FDMessageReader implements MessageReader {
         inData[0] = ByteBuffer.allocateDirect(totalMessageLen);
         finalBuffer = ByteBuffer.allocateDirect(totalMessageLen);
         inMessage.setIov(inData);
-        controls = inMessage.allocateControls(new int[]{200});
+        controls = inMessage.allocateControls(new int[]{200,200,200,200});
         
         bytesRead = 0;
         
@@ -148,12 +149,12 @@ public class FDMessageReader implements MessageReader {
         finalBuffer.get(body);
 
         for( CmsgHdr cmsghdr : controls ){
-            if( cmsghdr.getType() == jnr.constants.platform.SocketLevel.SOL_SOCKET.intValue() &&
-                    cmsghdr.getLevel() == SCM_RIGHTS ){
+            logger.debug( "control is {}", cmsghdr);
+            if( cmsghdr.getType() == jnr.constants.platform.SocketLevel.SOL_SOCKET.intValue() ){
                 ByteBuffer bb = cmsghdr.getData();
-                if( endian == 0x42 /* ASCII 'B' */ ){
+                if( endian == Endian.BIG ){
                     bb.order(ByteOrder.BIG_ENDIAN);
-                }else if( endian == 0x6C /* ASCII 'l' */ ){
+                }else if( endian == Endian.LITTLE ){
                     bb.order(ByteOrder.LITTLE_ENDIAN);
                 }else{
                     logger.error( "Incorrect endian {}", endian );
@@ -162,6 +163,10 @@ public class FDMessageReader implements MessageReader {
                 filedescriptors.add( new FileDescriptor( bb.getInt() ) );
             }
         }
+
+        logger.debug( "have {} filedescriptors with incoming message {}",
+                filedescriptors.size(),
+                inMessage );
         
         try {
             m = MessageFactory.createMessage(type, header1, arrayHeader, body, filedescriptors);
