@@ -2,9 +2,8 @@ package org.freedesktop.dbus;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
+import java.nio.ByteOrder;
 import java.util.List;
-import jnr.ffi.Pointer;
 import jnr.posix.CmsgHdr;
 import jnr.posix.MsgHdr;
 import jnr.posix.POSIXFactory;
@@ -63,9 +62,15 @@ public class FDMessageWriter implements MessageWriter {
             cmsghdr.setType(jnr.constants.platform.SocketLevel.SOL_SOCKET.intValue());
             cmsghdr.setLevel(SCM_RIGHTS);
             ByteBuffer bb = ByteBuffer.allocateDirect(fds.size() * 4);
+            if( m.getEndianess() == Message.Endian.BIG ){
+                bb.order( ByteOrder.BIG_ENDIAN );
+            }else{
+                bb.order( ByteOrder.LITTLE_ENDIAN );
+            }
             for( FileDescriptor fd : fds ){
                 bb.putInt( fd.getIntFileDescriptor() );
             }
+            bb.flip();
             cmsghdr.setData(bb);
         }
         

@@ -574,7 +574,7 @@ public class Message {
             case ArgumentType.FILEDESCRIPTOR:
                 filedescriptors.add((FileDescriptor)data);
                 appendint(filedescriptors.size() - 1, 4);
-                headers.put(HeaderField.UNIX_FDS, filedescriptors.size() - 1);
+                logger.debug( "Just inserted {} as filedescriptor", filedescriptors.size() - 1 );
                 break;
             case ArgumentType.STRING:
             case ArgumentType.OBJECT_PATH:
@@ -1310,6 +1310,10 @@ public class Message {
      */
     public byte getType() {
         return type;
+    }
+
+    public byte getEndianess() {
+        return big ? Endian.BIG : Endian.LITTLE;
     }
     
     /** Defines constants representing the flags which can be set on a message. */
