@@ -53,7 +53,6 @@ public class FDMessageReader implements MessageReader {
         Message m;
         ByteBuffer finalBuffer;
         List<FileDescriptor> filedescriptors = new ArrayList<>();
-        CmsgHdr[] controls;
 
         if( Thread.currentThread().isInterrupted() ){
             return null;
@@ -66,6 +65,7 @@ public class FDMessageReader implements MessageReader {
         // Arrays have the len as the first UINT32, so we need to read 16 bytes
         inData[0] = ByteBuffer.allocateDirect(16);
         inMessage.setIov(inData);
+        inMessage.allocateControl(512);
         
         while( bytesRead != 16 ){
             bytesRead = POSIX.recvmsg(m_fd, inMessage, MSG_PEEK);
@@ -74,7 +74,7 @@ public class FDMessageReader implements MessageReader {
                 throw new IOException( "Unable to receive data: " + POSIX.strerror(errno) );
             }
         }
-        
+
         /* Parse the details from the header */
         byte endian = inData[0].get(0);
         byte type = inData[0].get(1);
@@ -109,7 +109,6 @@ public class FDMessageReader implements MessageReader {
         inData[0] = ByteBuffer.allocateDirect(totalMessageLen);
         finalBuffer = ByteBuffer.allocateDirect(totalMessageLen);
         inMessage.setIov(inData);
-        controls = inMessage.allocateControls(new int[]{200,200,200,200});
         
         bytesRead = 0;
         
@@ -148,8 +147,7 @@ public class FDMessageReader implements MessageReader {
         finalBuffer.get(arrayHeader, 8, arrayHeader.length - 8);
         finalBuffer.get(body);
 
-        for( CmsgHdr cmsghdr : controls ){
-            logger.debug( "control is {}", cmsghdr);
+        for( CmsgHdr cmsghdr : inMessage.getControls() ){
             if( cmsghdr.getType() == jnr.constants.platform.SocketLevel.SOL_SOCKET.intValue() ){
                 ByteBuffer bb = cmsghdr.getData();
                 if( endian == Endian.BIG ){
