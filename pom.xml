@@ -23,6 +23,7 @@
         <module>dbus-java</module>
         <module>dbus-java-osgi</module>
         <module>dbus-java-utils</module>
+        <module>dbus-java-jni-connector</module>
     </modules>
 
     <build>

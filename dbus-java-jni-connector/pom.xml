@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.github.hypfvieh</groupId>
+        <artifactId>dbus-java-parent</artifactId>
+        <version>3.2.1-SNAPSHOT</version>
+    </parent>
+    <artifactId>dbus-java-jni-connector</artifactId>
+    <packaging>jar</packaging>
+
+    <profiles>
+        <profile>
+            <id>linux-x86_64-release</id>
+            <activation>
+                <os>
+                    <family>linux</family>
+                    <arch>amd64</arch>
+                </os>
+            </activation>
+            <properties>
+                <platform>linux-x86_64</platform>
+                <build.type>release</build.type>
+                <cmake.classifier>linux-x86_64</cmake.classifier>
+            </properties>
+        </profile>
+    </profiles>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.github.jnr</groupId>
+            <artifactId>jnr-unixsocket</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.hypfvieh</groupId>
+            <artifactId>dbus-java</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <compilerArgs>
+                        <arg>-h</arg>
+                        <arg>target/headers</arg>
+                    </compilerArgs>
+                    <source>11</source>
+                    <target>11</target>
+                </configuration>
+
+                <executions>
+                    <execution>
+                        <id>generate-jni-headers</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>com.googlecode.cmake-maven-project</groupId>
+                <artifactId>cmake-maven-plugin</artifactId>
+                <version>3.16.3-b1</version>
+
+                <executions>
+                    <execution>
+                        <id>cmake-generate</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+
+                        <configuration>
+                            <sourcePath>${project.basedir}/src/main/jni</sourcePath>
+                            <targetPath>${project.build.directory}/${platform}</targetPath>
+                            <classifier>${cmake.classifier}</classifier>
+                            <options>${cmake.options}</options>
+                            <environmentVariables>
+                                <CMAKE_CLASSIFIER>${cmake.classifier}</CMAKE_CLASSIFIER>
+                            </environmentVariables>
+                            <downloadBinaries>${download.cmake}</downloadBinaries>
+                        </configuration>
+                    </execution>
+
+                    <execution>
+                        <id>cmake-compile</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+
+                        <configuration>
+                            <projectDirectory>${project.build.directory}/${platform}</projectDirectory>
+                            <classifier>${cmake.classifier}</classifier>
+                            <config>${cmake.config}</config>
+                            <downloadBinaries>true</downloadBinaries>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

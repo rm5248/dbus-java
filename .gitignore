@@ -10,3 +10,4 @@ build
 
 dbus-java-osgi/META-INF
 dbus-java-osgi/target
+dbus-java-jni-connector/target/
